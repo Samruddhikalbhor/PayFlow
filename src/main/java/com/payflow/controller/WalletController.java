@@ -10,6 +10,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.payflow.dto.TransactionHistoryResponse;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/wallets")
 public class WalletController {
@@ -30,5 +33,14 @@ public class WalletController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(response);
+    }
+
+    @GetMapping("/{userId}/transactions")
+    public ResponseEntity<List<TransactionHistoryResponse>> getTransactionHistory(
+            @PathVariable Long userId) {
+
+        List<TransactionHistoryResponse> transactions = walletService.getTransactionHistory(userId);
+
+        return ResponseEntity.ok(transactions);
     }
 }

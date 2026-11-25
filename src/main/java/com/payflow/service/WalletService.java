@@ -13,6 +13,10 @@ import com.payflow.repository.WalletRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.payflow.dto.TransactionHistoryResponse;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import java.math.BigDecimal;
 
 @Service
@@ -35,8 +39,7 @@ public class WalletService {
         // 1. Find and lock the user's wallet
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new WalletNotFoundException(
-                        "Wallet not found for user ID: " + userId
-                ));
+                        "Wallet not found for user ID: " + userId));
 
         // 2. Get the deposit amount
         BigDecimal amount = request.getAmount();
@@ -58,8 +61,7 @@ public class WalletService {
         transaction.setStatus(TransactionStatus.SUCCESS);
         transaction.setDescription("Wallet deposit");
 
-        Transaction savedTransaction =
-                transactionRepository.save(transaction);
+        Transaction savedTransaction = transactionRepository.save(transaction);
 
         // 6. Return the deposit response
         return new DepositResponse(
@@ -69,7 +71,28 @@ public class WalletService {
                 updatedBalance,
                 savedTransaction.getType().name(),
                 savedTransaction.getStatus().name(),
-                savedTransaction.getCreatedAt()
-        );
+                savedTransaction.getCreatedAt());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TransactionHistoryResponse> getTransactionHistory(Long userId) {
+
+        Wallet wallet = walletRepository.findByUser_Id(userId)
+                .orElseThrow(() -> new WalletNotFoundException(
+                        "Wallet not found for user ID: " + userId));
+
+        List<Transaction> transactions = transactionRepository.findByWallet_IdOrderByCreatedAtDesc(
+                wallet.getId());
+
+        return transactions.stream()
+                .map(transaction -> new TransactionHistoryResponse(
+                        transaction.getId(),
+                        wallet.getId(),
+                        transaction.getAmount(),
+                        transaction.getType().name(),
+                        transaction.getStatus().name(),
+                        transaction.getDescription(),
+                        transaction.getCreatedAt()))
+                .collect(Collectors.toList());
     }
 }
