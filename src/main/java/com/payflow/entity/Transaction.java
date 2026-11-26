@@ -15,6 +15,9 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
     private Wallet wallet;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "related_wallet_id")
+    private Wallet relatedWallet;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
@@ -89,5 +92,13 @@ public class Transaction {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public Wallet getRelatedWallet() {
+        return relatedWallet;
+    }
+
+    public void setRelatedWallet(Wallet relatedWallet) {
+        this.relatedWallet = relatedWallet;
     }
 }

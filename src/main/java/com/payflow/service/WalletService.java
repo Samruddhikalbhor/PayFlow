@@ -10,6 +10,13 @@ import com.payflow.exception.WalletNotFoundException;
 import com.payflow.repository.TransactionRepository;
 import com.payflow.repository.WalletRepository;
 
+import com.payflow.dto.TransferRequest;
+import com.payflow.dto.TransferResponse;
+import com.payflow.exception.InsufficientBalanceException;
+import com.payflow.exception.InvalidTransferException;
+
+import java.util.Objects;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,5 +101,96 @@ public class WalletService {
                         transaction.getDescription(),
                         transaction.getCreatedAt()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public TransferResponse transfer(TransferRequest request) {
+
+        Long senderUserId = request.getSenderUserId();
+        Long receiverUserId = request.getReceiverUserId();
+        BigDecimal amount = request.getAmount();
+
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransferException(
+                    "Transfer amount must be greater than zero");
+        }
+
+        // 1. Validate sender and receiver
+        if (Objects.equals(senderUserId, receiverUserId)) {
+            throw new InvalidTransferException(
+                    "Sender and receiver cannot be the same user");
+        }
+
+        // 2. Lock wallets in ascending user ID order
+        Long firstUserId = Math.min(senderUserId, receiverUserId);
+        Long secondUserId = Math.max(senderUserId, receiverUserId);
+
+        Wallet firstWallet = walletRepository.findByUserIdForUpdate(firstUserId)
+                .orElseThrow(() -> new WalletNotFoundException(
+                        "Wallet not found for user ID: " + firstUserId));
+
+        Wallet secondWallet = walletRepository.findByUserIdForUpdate(secondUserId)
+                .orElseThrow(() -> new WalletNotFoundException(
+                        "Wallet not found for user ID: " + secondUserId));
+
+        // 3. Identify sender and receiver wallets
+        Wallet senderWallet = senderUserId.equals(firstUserId)
+                ? firstWallet
+                : secondWallet;
+
+        Wallet receiverWallet = receiverUserId.equals(firstUserId)
+                ? firstWallet
+                : secondWallet;
+
+        // 4. Check sufficient balance
+        if (senderWallet.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException(
+                    "Insufficient wallet balance");
+        }
+
+        // 5. Calculate updated balances
+        BigDecimal senderBalance = senderWallet.getBalance().subtract(amount);
+
+        BigDecimal receiverBalance = receiverWallet.getBalance().add(amount);
+
+        // 6. Update both wallets
+        senderWallet.setBalance(senderBalance);
+        receiverWallet.setBalance(receiverBalance);
+
+        walletRepository.save(senderWallet);
+        walletRepository.save(receiverWallet);
+
+        // 7. Create sender transaction record
+        Transaction senderTransaction = new Transaction();
+        senderTransaction.setWallet(senderWallet);
+        senderTransaction.setRelatedWallet(receiverWallet);
+        senderTransaction.setAmount(amount);
+        senderTransaction.setType(TransactionType.TRANSFER);
+        senderTransaction.setStatus(TransactionStatus.SUCCESS);
+        senderTransaction.setDescription("Money transferred");
+
+        // 8. Create receiver transaction record
+        Transaction receiverTransaction = new Transaction();
+        receiverTransaction.setWallet(receiverWallet);
+        receiverTransaction.setRelatedWallet(senderWallet);
+        receiverTransaction.setAmount(amount);
+        receiverTransaction.setType(TransactionType.TRANSFER);
+        receiverTransaction.setStatus(TransactionStatus.SUCCESS);
+        receiverTransaction.setDescription("Money received");
+
+        transactionRepository.save(senderTransaction);
+        transactionRepository.save(receiverTransaction);
+
+        // 9. Return transfer response
+        return new TransferResponse(
+                senderTransaction.getId(),
+                senderWallet.getId(),
+                receiverWallet.getId(),
+                amount,
+                senderBalance,
+                receiverBalance,
+                TransactionType.TRANSFER.name(),
+                TransactionStatus.SUCCESS.name(),
+                senderTransaction.getCreatedAt());
     }
 }
