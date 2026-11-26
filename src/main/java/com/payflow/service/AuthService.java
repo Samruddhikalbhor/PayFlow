@@ -12,12 +12,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.payflow.dto.LoginRequest;
+import com.payflow.dto.LoginResponse;
+import com.payflow.exception.InvalidCredentialsException;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 @Service
 public class AuthService {
 
+    private final JwtService jwtService;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
@@ -25,11 +30,13 @@ public class AuthService {
     public AuthService(
             UserRepository userRepository,
             WalletRepository walletRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService) {
 
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Transactional
@@ -43,8 +50,7 @@ public class AuthService {
         // 2. Check whether email already exists
         if (userRepository.existsByEmail(normalizedEmail)) {
             throw new EmailAlreadyExistsException(
-                    "An account with this email already exists"
-            );
+                    "An account with this email already exists");
         }
 
         // 3. Check BCrypt's 72-byte input limit
@@ -53,8 +59,7 @@ public class AuthService {
 
         if (passwordBytes > 72) {
             throw new IllegalArgumentException(
-                    "Password must not exceed 72 bytes"
-            );
+                    "Password must not exceed 72 bytes");
         }
 
         // 4. Create user
@@ -81,7 +86,37 @@ public class AuthService {
                 savedUser.getEmail(),
                 savedWallet.getId(),
                 "Registration successful",
-                savedUser.getCreatedAt()
-        );
+                savedUser.getCreatedAt());
     }
+
+    public LoginResponse login(LoginRequest request) {
+
+        String email = request.getEmail()
+                .trim()
+                .toLowerCase(java.util.Locale.ROOT);
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new InvalidCredentialsException(
+                        "Invalid email or password"));
+
+        boolean passwordMatches = passwordEncoder.matches(
+                request.getPassword(),
+                user.getPassword());
+
+        if (!passwordMatches) {
+            throw new InvalidCredentialsException(
+                    "Invalid email or password");
+        }
+
+        String token = jwtService.generateToken(user);
+
+        return new LoginResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                token,
+                "Bearer",
+                "Login successful");
+    }
+
 }

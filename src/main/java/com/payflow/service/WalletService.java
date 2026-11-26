@@ -104,9 +104,8 @@ public class WalletService {
     }
 
     @Transactional
-    public TransferResponse transfer(TransferRequest request) {
+    public TransferResponse transfer(Long senderUserId, TransferRequest request) {
 
-        Long senderUserId = request.getSenderUserId();
         Long receiverUserId = request.getReceiverUserId();
         BigDecimal amount = request.getAmount();
 

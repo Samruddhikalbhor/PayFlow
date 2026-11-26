@@ -1,5 +1,7 @@
 package com.payflow.controller;
 
+import com.payflow.dto.LoginRequest;
+import com.payflow.dto.LoginResponse;
 import com.payflow.dto.RegisterRequest;
 import com.payflow.dto.RegisterResponse;
 import com.payflow.service.AuthService;
@@ -30,4 +32,14 @@ public class AuthController {
                 .status(HttpStatus.CREATED)
                 .body(response);
     }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity.ok(response);
+    }
+
 }

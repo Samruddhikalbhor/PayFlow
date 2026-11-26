@@ -1,3 +1,4 @@
+
 package com.payflow.dto;
 
 import jakarta.validation.constraints.DecimalMin;
@@ -8,10 +9,6 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 public class TransferRequest {
-
-    @NotNull(message = "Sender user ID is required")
-    @Positive(message = "Sender user ID must be positive")
-    private Long senderUserId;
 
     @NotNull(message = "Receiver user ID is required")
     @Positive(message = "Receiver user ID must be positive")
@@ -24,14 +21,6 @@ public class TransferRequest {
     private BigDecimal amount;
 
     public TransferRequest() {
-    }
-
-    public Long getSenderUserId() {
-        return senderUserId;
-    }
-
-    public void setSenderUserId(Long senderUserId) {
-        this.senderUserId = senderUserId;
     }
 
     public Long getReceiverUserId() {
